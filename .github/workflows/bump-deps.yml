@@ -11,7 +11,7 @@ jobs:
   dep-update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
         with:
           java-version: '11'
@@ -50,5 +50,5 @@ jobs:
     permissions:
       actions: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: liskin/gh-workflow-keepalive@v1
