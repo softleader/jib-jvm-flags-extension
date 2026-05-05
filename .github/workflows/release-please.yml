@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   release-please:
-    runs-on: [self-hosted, ubuntu-jammy]
+    runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.rp.outputs.release_created }}
       tag_name: ${{ steps.rp.outputs.tag_name }}
@@ -32,7 +32,7 @@ jobs:
           manifest-file: .release-please-manifest.json
 
   trigger-jenkins:
-    runs-on: [self-hosted, ubuntu-jammy]
+    runs-on: ubuntu-latest
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
     steps:
