@@ -33,6 +33,9 @@ build/
 ### Mac ###
 .DS_Store
 
+### Gradle ###
+.gradle/
+
 ### Project ###
 **/bin/
 

@@ -1,0 +1,82 @@
+plugins {
+  id 'java-library'
+  id 'com.diffplug.spotless' version '6.25.0'
+}
+
+group = 'tw.com.softleader.cloud.tools'
+description = 'A Jib gradle extension outputs the configured jvmFlags to file, allowing a custom entrypoint to access these flags.'
+
+java {
+  sourceCompatibility = JavaVersion.VERSION_11
+  targetCompatibility = JavaVersion.VERSION_11
+}
+
+tasks.withType(JavaCompile).configureEach {
+  options.encoding = 'UTF-8'
+}
+
+repositories {
+  mavenCentral()
+  gradlePluginPortal()
+}
+
+ext {
+  jibGradlePluginExtensionApiVersion = '0.4.0'
+  jibGradlePluginVersion = '3.4.0'
+  googleJavaFormatVersion = '1.17.0'
+  lombokVersion = '1.18.42'
+  commonsLang3Version = '3.18.0'
+  guavaVersion = '32.1.2-jre'
+  junitJupiterVersion = '5.13.4'
+  assertjVersion = '3.27.5'
+  mockitoVersion = '5.20.0'
+  mockitoInlineVersion = '5.2.0'
+}
+
+sourceSets {
+  main {
+    java {
+      srcDirs += '../core/src/main/java'
+    }
+  }
+}
+
+dependencies {
+  compileOnly gradleApi()
+  compileOnly "com.google.cloud.tools:jib-gradle-plugin-extension-api:${jibGradlePluginExtensionApiVersion}"
+  compileOnly "com.google.cloud.tools:jib-gradle-plugin:${jibGradlePluginVersion}"
+  compileOnly "org.apache.commons:commons-lang3:${commonsLang3Version}"
+  compileOnly "com.google.guava:guava:${guavaVersion}"
+
+  compileOnly "org.projectlombok:lombok:${lombokVersion}"
+  annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+  testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
+  testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+  testImplementation gradleApi()
+  testImplementation "com.google.cloud.tools:jib-gradle-plugin-extension-api:${jibGradlePluginExtensionApiVersion}"
+  testImplementation "com.google.cloud.tools:jib-gradle-plugin:${jibGradlePluginVersion}"
+  testImplementation "org.apache.commons:commons-lang3:${commonsLang3Version}"
+  testImplementation "com.google.guava:guava:${guavaVersion}"
+  testImplementation platform("org.junit:junit-bom:${junitJupiterVersion}")
+  testImplementation 'org.junit.jupiter:junit-jupiter'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+  testImplementation "org.assertj:assertj-core:${assertjVersion}"
+  testImplementation "org.mockito:mockito-junit-jupiter:${mockitoVersion}"
+  testImplementation "org.mockito:mockito-inline:${mockitoInlineVersion}"
+}
+
+tasks.named('test') {
+  useJUnitPlatform()
+}
+
+spotless {
+  java {
+    target 'src/main/java/**/*.java',
+        'src/test/java/**/*.java',
+        '../core/src/main/java/**/*.java'
+    googleJavaFormat googleJavaFormatVersion
+    licenseHeaderFile rootProject.file('../copyright-license-header-template.txt'), '(package|import)'
+  }
+}
