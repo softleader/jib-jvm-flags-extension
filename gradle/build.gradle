@@ -26,7 +26,8 @@ import org.sonatype.plexus.components.sec.dispatcher.DefaultSecDispatcher
 
 // 從 ~/.m2/settings.xml 讀指定 serverId 的 username/password,
 // password 若為 {加密} 形式則用 settings-security.xml 解.
-// 找不到檔或找不到 server 時回 null (本機 dev 沒這些檔不會 crash).
+// 找不到檔/找不到 server/server 缺 username 或 password 任一欄時回 null,
+// 讓 nmcp 走 env var fallback 或顯式 fail (避免空字串靜悄悄送到 Sonatype).
 def readMavenServer(String serverId) {
   def home = System.getProperty('user.home')
   def settingsFile = new File("$home/.m2/settings.xml")
@@ -37,17 +38,22 @@ def readMavenServer(String serverId) {
   def server = settings.servers.server.find { it.id.text() == serverId }
   if (!server) return null
 
-  def rawPassword = server.password.text()
+  // .trim() 處理 XML 排版常見的換行縮排, 例如 <password>\n  {xxx}\n</password>
+  def username = (server.username.text() ?: '').trim()
+  def rawPassword = (server.password.text() ?: '').trim()
+  if (!username || !rawPassword) return null
+
+  def cipher = new DefaultPlexusCipher()
   def password
-  if (rawPassword.startsWith('{') && rawPassword.endsWith('}')) {
+  if (cipher.isEncryptedString(rawPassword)) {
     if (!securityFile.exists()) return null
-    def dispatcher = new DefaultSecDispatcher(new DefaultPlexusCipher())
+    def dispatcher = new DefaultSecDispatcher(cipher)
     dispatcher.setConfigurationFile(securityFile.absolutePath)
     password = dispatcher.decrypt(rawPassword)
   } else {
     password = rawPassword
   }
-  return [username: server.username.text(), password: password]
+  return [username: username, password: password]
 }
 
 def centralCreds = readMavenServer('central') ?: [:]
