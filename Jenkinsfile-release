@@ -81,31 +81,15 @@ spec:
       }
     }
 
+    // 前置檢查 (sanity): release-please-action 已建好 tag + 非 draft GitHub Release,
+    // 此處只驗 tag 字串符合 semver, 防呆參數誤打
     stage ('Preflight Checks') {
       steps {
-        container('git') {
-          script {
-            def isSemVer = ("${tag}" ==~ semverPattern)
-            if (!isSemVer) {
-              error "Tag must matches semantic versioning 2 (https://semver.org/) but got: ${tag}";
-            }
-            TAG_EXISTS = sh(
-              script: 'gh release view ${tag} --json name',
-              returnStatus: true
-            )
-            def tagExists = ("${TAG_EXISTS}" == "0")
-            if (tagExists) {
-              error "Tag ${tag} already exists";
-            }
+        script {
+          def isSemVer = ("${tag}" ==~ semverPattern)
+          if (!isSemVer) {
+            error "Tag must matches semantic versioning 2 (https://semver.org/) but got: ${tag}";
           }
-        }
-      }
-    }
-
-    stage ('Create Release') {
-      steps {
-        container('git') {
-          sh "gh release create ${tag} --target ${ref} --generate-notes --draft"
         }
       }
     }
@@ -116,15 +100,17 @@ spec:
         echo /var/gpg/softleader.passphrase | gpg --batch --yes --import /var/gpg/softleader.key
         make release
         """
-      }
-      post {
-        success {
-          script {
-            container('git') {
-              sh """
-              gh release edit ${tag} --draft=false --latest
-              """
-            }
+        // Gradle 模組透過 nmcp plugin 上傳至 Sonatype Central Portal,
+        // 對齊 maven 側 central-publishing-maven-plugin 的行為.
+        // 需要 Jenkins 預先建立 username/password credential, id 對應下方 credentialsId.
+        withCredentials([usernamePassword(
+          credentialsId: 'softleader-sonatype-central',
+          usernameVariable: 'CENTRAL_PORTAL_USERNAME',
+          passwordVariable: 'CENTRAL_PORTAL_PASSWORD'
+        )]) {
+          dir('gradle') {
+            // --no-daemon: short-lived CI pod throws the daemon away, no point paying startup
+            sh './gradlew publishAllPublicationsToCentralPortal --no-daemon'
           }
         }
       }
