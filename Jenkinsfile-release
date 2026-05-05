@@ -50,9 +50,6 @@ spec:
   }
 
   environment {
-    // 在 Jenkins 中 System Configuration > Manage Credential
-    // ref: https://docs.cloudbees.com/docs/cloudbees-ci/latest/cloud-secure-guide/injecting-secrets
-    CREDENTIAL = credentials("a84db61d-b4a4-4e05-a368-c1b283860090")
     MAVEN_OPTS="-Xmx768m -XX:MaxMetaspaceSize=128m"
   }
 
@@ -60,20 +57,6 @@ spec:
 
     stage('Setup') {
       steps {
-        container('git') {
-          script {
-            env.GIT_PATH = sh(
-              script: 'echo $GIT_URL | awk -F"github.com/" "{print \\\$2}"',
-              returnStdout: true
-            ).trim()
-            sh """
-            git remote set-url origin https://$CREDENTIAL_USR:"$CREDENTIAL_PSW"@github.com/$GIT_PATH".git"
-            git config --global user.email "jenkins-bot@softleader.com.tw"
-            git config --global user.name "jenkins[bot]"
-            echo $CREDENTIAL_PSW | gh auth login --with-token
-            """
-          }
-        }
         sh 'printenv'
         sh 'java -version'
         sh 'mvn --version'
@@ -96,21 +79,29 @@ spec:
 
     stage ('Publish Release') {
       steps {
-        sh """
-        echo /var/gpg/softleader.passphrase | gpg --batch --yes --import /var/gpg/softleader.key
-        make release
-        """
-        // Gradle 模組透過 nmcp plugin 上傳至 Sonatype Central Portal,
-        // 對齊 maven 側 central-publishing-maven-plugin 的行為.
-        // 需要 Jenkins 預先建立 username/password credential, id 對應下方 credentialsId.
+        // withCredentials 包覆整個 stage: credential 不存在會在 maven publish 之前 fail-fast,
+        // 避免 maven 發成功 / gradle 才 fail 造成 1.1.0 半上半沒上的不對稱發版.
+        // Jenkins 需預先建立 id=softleader-sonatype-central 的 username/password credential,
+        // 與 maven 側 settings.xml <server id="central"> 同一組 Sonatype Central Portal 帳密.
         withCredentials([usernamePassword(
           credentialsId: 'softleader-sonatype-central',
           usernameVariable: 'CENTRAL_PORTAL_USERNAME',
           passwordVariable: 'CENTRAL_PORTAL_PASSWORD'
         )]) {
+          sh """
+          echo /var/gpg/softleader.passphrase | gpg --batch --yes --import /var/gpg/softleader.key
+          make release
+          """
+          // Gradle 模組透過 nmcp plugin 上傳至 Sonatype Central Portal,
+          // 對齊 maven 側 central-publishing-maven-plugin 的行為.
+          // GPG_PASSPHRASE 餵給 build.gradle signing 區塊的 signing.gnupg.passphrase property,
+          // 讓 useGpgCmd() 在 --batch 模式下能取得 passphrase (Gradle 不會自動 prime gpg-agent cache).
           dir('gradle') {
             // --no-daemon: short-lived CI pod throws the daemon away, no point paying startup
-            sh './gradlew publishAllPublicationsToCentralPortal --no-daemon'
+            sh '''
+            export GPG_PASSPHRASE="$(cat /var/gpg/softleader.passphrase)"
+            ./gradlew publishAllPublicationsToCentralPortal --no-daemon
+            '''
           }
         }
       }

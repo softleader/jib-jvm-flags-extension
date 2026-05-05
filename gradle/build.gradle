@@ -124,6 +124,15 @@ publishing {
   }
 }
 
+// Wire GPG_PASSPHRASE env var into the signing.gnupg.passphrase project property
+// so useGpgCmd()'s `gpg --batch` invocation can supply the passphrase via --passphrase-fd
+// (Gradle does not prime gpg-agent cache; without this, signMavenJavaPublication would
+// hang/fail at release time).
+def gnupgPassphrase = providers.environmentVariable('GPG_PASSPHRASE').orNull
+if (gnupgPassphrase) {
+  ext['signing.gnupg.passphrase'] = gnupgPassphrase
+}
+
 signing {
   // Uses the gpg CLI from PATH; in CI the key is imported via
   // `gpg --batch --yes --import /var/gpg/softleader.key` in Jenkinsfile-release.
