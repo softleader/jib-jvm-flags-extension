@@ -1,7 +1,65 @@
+buildscript {
+  repositories {
+    mavenCentral()
+  }
+  dependencies {
+    // 沿用 maven 加密 settings.xml 的同一套元件 (plexus-sec-dispatcher),
+    // 在 build.gradle 解密 ~/.m2/settings.xml 的
+    // <server id="central"><password>{encrypted}</password>,
+    // 跟 maven-gpg-plugin / central-publishing-maven-plugin 共用同一份加密源,
+    // 避免 Jenkins 端再開一份 plaintext / 另一個 credential.
+    classpath 'org.codehaus.plexus:plexus-cipher:2.0'
+    classpath 'org.codehaus.plexus:plexus-sec-dispatcher:2.0'
+    classpath 'org.codehaus.plexus:plexus-utils:3.5.1'
+  }
+}
+
 plugins {
   id 'java-library'
+  id 'maven-publish'
+  id 'signing'
+  id 'com.gradleup.nmcp' version '0.0.9'
   id 'com.diffplug.spotless' version '6.25.0'
 }
+
+import org.sonatype.plexus.components.cipher.DefaultPlexusCipher
+import org.sonatype.plexus.components.sec.dispatcher.DefaultSecDispatcher
+
+// 從 ~/.m2/settings.xml 讀指定 serverId 的 username/password,
+// password 若為 {加密} 形式則用 settings-security.xml 解.
+// 找不到檔/找不到 server/server 缺 username 或 password 任一欄時回 null,
+// 讓 nmcp 走 env var fallback 或顯式 fail (避免空字串靜悄悄送到 Sonatype).
+def readMavenServer(String serverId) {
+  def home = System.getProperty('user.home')
+  def settingsFile = new File("$home/.m2/settings.xml")
+  def securityFile = new File("$home/.m2/settings-security.xml")
+  if (!settingsFile.exists()) return null
+
+  def settings = new XmlSlurper().parse(settingsFile)
+  def server = settings.servers.server.find { it.id.text() == serverId }
+  if (!server) return null
+
+  // .trim() 處理 XML 排版常見的換行縮排, 例如 <password>\n  {xxx}\n</password>
+  def username = (server.username.text() ?: '').trim()
+  def rawPassword = (server.password.text() ?: '').trim()
+  if (!username || !rawPassword) return null
+
+  def cipher = new DefaultPlexusCipher()
+  def password
+  if (cipher.isEncryptedString(rawPassword)) {
+    if (!securityFile.exists()) return null
+    def dispatcher = new DefaultSecDispatcher(cipher)
+    dispatcher.setConfigurationFile(securityFile.absolutePath)
+    password = dispatcher.decrypt(rawPassword)
+  } else {
+    password = rawPassword
+  }
+  return [username: username, password: password]
+}
+
+// 包成 Provider, 只有真的需要時 (publish task 配置/執行) 才讀檔解密;
+// `./gradlew test` / `./gradlew build` 不會碰 settings.xml.
+def centralCreds = providers.provider { readMavenServer('central') ?: [:] }
 
 group = 'tw.com.softleader.cloud.tools'
 description = 'A Jib gradle extension outputs the configured jvmFlags to file, allowing a custom entrypoint to access these flags.'
@@ -9,6 +67,8 @@ description = 'A Jib gradle extension outputs the configured jvmFlags to file, a
 java {
   sourceCompatibility = JavaVersion.VERSION_11
   targetCompatibility = JavaVersion.VERSION_11
+  withSourcesJar()
+  withJavadocJar()
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -81,5 +141,71 @@ spotless {
         '../core/src/main/java/**/*.java'
     googleJavaFormat googleJavaFormatVersion
     licenseHeaderFile rootProject.file('../copyright-license-header-template.txt'), '(package|import)'
+  }
+}
+
+publishing {
+  publications {
+    mavenJava(MavenPublication) {
+      from components.java
+      pom {
+        name = 'JVM Flags Extension for Jib Gradle Plugin'
+        description = project.description
+        url = 'https://github.com/softleader/jib-jvm-flags-extension'
+        inceptionYear = '2024'
+        organization {
+          name = 'SoftLeader'
+          url = 'http://www.softleader.com.tw'
+        }
+        licenses {
+          license {
+            name = 'The Apache Software License, Version 2.0'
+            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+          }
+        }
+        developers {
+          developer {
+            name = 'Matt Ho'
+            email = 'matt.ho@softleader.com.tw'
+          }
+        }
+        scm {
+          connection = 'scm:git:git://github.com/softleader/jib-jvm-flags-extension.git'
+          developerConnection = 'scm:git:ssh://git@github.com/softleader/jib-jvm-flags-extension.git'
+          url = 'https://github.com/softleader/jib-jvm-flags-extension'
+        }
+      }
+    }
+  }
+}
+
+// Wire GPG_PASSPHRASE env var into the signing.gnupg.passphrase project property
+// so useGpgCmd()'s `gpg --batch` invocation can supply the passphrase via --passphrase-fd
+// (Gradle does not prime gpg-agent cache; without this, signMavenJavaPublication would
+// hang/fail at release time).
+def gnupgPassphrase = providers.environmentVariable('GPG_PASSPHRASE').orNull
+if (gnupgPassphrase) {
+  ext['signing.gnupg.passphrase'] = gnupgPassphrase
+}
+
+signing {
+  // Uses the gpg CLI from PATH; in CI the key is imported via
+  // `gpg --batch --yes --import /var/gpg/softleader.key` in Jenkinsfile-release.
+  useGpgCmd()
+  sign publishing.publications.mavenJava
+}
+
+nmcp {
+  // Publishes bundle to Sonatype Central Portal (https://central.sonatype.com),
+  // mirroring the maven side's central-publishing-maven-plugin with autoPublish=true.
+  // Credentials sourced from ~/.m2/settings.xml <server id="central"> — same source as
+  // maven-side central-publishing-maven-plugin, decrypted via plexus-sec-dispatcher above.
+  // Env vars CENTRAL_PORTAL_USERNAME / PASSWORD remain as override (e.g. for non-CI).
+  publishAllPublications {
+    username = providers.environmentVariable('CENTRAL_PORTAL_USERNAME')
+        .orElse(centralCreds.map { it.username ?: '' })
+    password = providers.environmentVariable('CENTRAL_PORTAL_PASSWORD')
+        .orElse(centralCreds.map { it.password ?: '' })
+    publicationType = 'AUTOMATIC'
   }
 }

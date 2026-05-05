@@ -50,9 +50,6 @@ spec:
   }
 
   environment {
-    // 在 Jenkins 中 System Configuration > Manage Credential
-    // ref: https://docs.cloudbees.com/docs/cloudbees-ci/latest/cloud-secure-guide/injecting-secrets
-    CREDENTIAL = credentials("a84db61d-b4a4-4e05-a368-c1b283860090")
     MAVEN_OPTS="-Xmx768m -XX:MaxMetaspaceSize=128m"
   }
 
@@ -60,20 +57,6 @@ spec:
 
     stage('Setup') {
       steps {
-        container('git') {
-          script {
-            env.GIT_PATH = sh(
-              script: 'echo $GIT_URL | awk -F"github.com/" "{print \\\$2}"',
-              returnStdout: true
-            ).trim()
-            sh """
-            git remote set-url origin https://$CREDENTIAL_USR:"$CREDENTIAL_PSW"@github.com/$GIT_PATH".git"
-            git config --global user.email "jenkins-bot@softleader.com.tw"
-            git config --global user.name "jenkins[bot]"
-            echo $CREDENTIAL_PSW | gh auth login --with-token
-            """
-          }
-        }
         sh 'printenv'
         sh 'java -version'
         sh 'mvn --version'
@@ -81,31 +64,15 @@ spec:
       }
     }
 
+    // 前置檢查 (sanity): release-please-action 已建好 tag + 非 draft GitHub Release,
+    // 此處只驗 tag 字串符合 semver, 防呆參數誤打
     stage ('Preflight Checks') {
       steps {
-        container('git') {
-          script {
-            def isSemVer = ("${tag}" ==~ semverPattern)
-            if (!isSemVer) {
-              error "Tag must matches semantic versioning 2 (https://semver.org/) but got: ${tag}";
-            }
-            TAG_EXISTS = sh(
-              script: 'gh release view ${tag} --json name',
-              returnStatus: true
-            )
-            def tagExists = ("${TAG_EXISTS}" == "0")
-            if (tagExists) {
-              error "Tag ${tag} already exists";
-            }
+        script {
+          def isSemVer = ("${tag}" ==~ semverPattern)
+          if (!isSemVer) {
+            error "Tag must matches semantic versioning 2 (https://semver.org/) but got: ${tag}";
           }
-        }
-      }
-    }
-
-    stage ('Create Release') {
-      steps {
-        container('git') {
-          sh "gh release create ${tag} --target ${ref} --generate-notes --draft"
         }
       }
     }
@@ -116,16 +83,18 @@ spec:
         echo /var/gpg/softleader.passphrase | gpg --batch --yes --import /var/gpg/softleader.key
         make release
         """
-      }
-      post {
-        success {
-          script {
-            container('git') {
-              sh """
-              gh release edit ${tag} --draft=false --latest
-              """
-            }
-          }
+        // Gradle 模組透過 nmcp plugin 上傳至 Sonatype Central Portal,
+        // 對齊 maven 側 central-publishing-maven-plugin 的行為.
+        // Sonatype 帳密由 build.gradle 從 ~/.m2/settings.xml <server id="central"> 解密讀取
+        // (與 maven 同源, plexus-sec-dispatcher 解 settings-security.xml), 不需 Jenkins credential.
+        // GPG_PASSPHRASE 餵給 build.gradle signing 區塊的 signing.gnupg.passphrase project property,
+        // 讓 useGpgCmd() 在 --batch 模式下能取得 passphrase (Gradle 不會自動 prime gpg-agent cache).
+        dir('gradle') {
+          // --no-daemon: short-lived CI pod throws the daemon away, no point paying startup
+          sh '''
+          export GPG_PASSPHRASE="$(cat /var/gpg/softleader.passphrase)"
+          ./gradlew publishAllPublicationsToCentralPortal --no-daemon
+          '''
         }
       }
     }
