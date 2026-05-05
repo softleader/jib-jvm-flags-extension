@@ -79,30 +79,22 @@ spec:
 
     stage ('Publish Release') {
       steps {
-        // withCredentials 包覆整個 stage: credential 不存在會在 maven publish 之前 fail-fast,
-        // 避免 maven 發成功 / gradle 才 fail 造成 1.1.0 半上半沒上的不對稱發版.
-        // Jenkins 需預先建立 id=softleader-sonatype-central 的 username/password credential,
-        // 與 maven 側 settings.xml <server id="central"> 同一組 Sonatype Central Portal 帳密.
-        withCredentials([usernamePassword(
-          credentialsId: 'softleader-sonatype-central',
-          usernameVariable: 'CENTRAL_PORTAL_USERNAME',
-          passwordVariable: 'CENTRAL_PORTAL_PASSWORD'
-        )]) {
-          sh """
-          echo /var/gpg/softleader.passphrase | gpg --batch --yes --import /var/gpg/softleader.key
-          make release
-          """
-          // Gradle 模組透過 nmcp plugin 上傳至 Sonatype Central Portal,
-          // 對齊 maven 側 central-publishing-maven-plugin 的行為.
-          // GPG_PASSPHRASE 餵給 build.gradle signing 區塊的 signing.gnupg.passphrase property,
-          // 讓 useGpgCmd() 在 --batch 模式下能取得 passphrase (Gradle 不會自動 prime gpg-agent cache).
-          dir('gradle') {
-            // --no-daemon: short-lived CI pod throws the daemon away, no point paying startup
-            sh '''
-            export GPG_PASSPHRASE="$(cat /var/gpg/softleader.passphrase)"
-            ./gradlew publishAllPublicationsToCentralPortal --no-daemon
-            '''
-          }
+        sh """
+        echo /var/gpg/softleader.passphrase | gpg --batch --yes --import /var/gpg/softleader.key
+        make release
+        """
+        // Gradle 模組透過 nmcp plugin 上傳至 Sonatype Central Portal,
+        // 對齊 maven 側 central-publishing-maven-plugin 的行為.
+        // Sonatype 帳密由 build.gradle 從 ~/.m2/settings.xml <server id="central"> 解密讀取
+        // (與 maven 同源, plexus-sec-dispatcher 解 settings-security.xml), 不需 Jenkins credential.
+        // GPG_PASSPHRASE 餵給 build.gradle signing 區塊的 signing.gnupg.passphrase project property,
+        // 讓 useGpgCmd() 在 --batch 模式下能取得 passphrase (Gradle 不會自動 prime gpg-agent cache).
+        dir('gradle') {
+          // --no-daemon: short-lived CI pod throws the daemon away, no point paying startup
+          sh '''
+          export GPG_PASSPHRASE="$(cat /var/gpg/softleader.passphrase)"
+          ./gradlew publishAllPublicationsToCentralPortal --no-daemon
+          '''
         }
       }
     }

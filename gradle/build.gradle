@@ -1,3 +1,18 @@
+buildscript {
+  repositories {
+    mavenCentral()
+  }
+  dependencies {
+    // 用 maven 自己的 lib 在 build.gradle 解密 ~/.m2/settings.xml 的
+    // <server id="central"><password>{encrypted}</password>，
+    // 跟 maven-gpg-plugin / central-publishing-maven-plugin 共用同一份加密源,
+    // 避免 Jenkins 端再開一份 plaintext / 另一個 credential.
+    classpath 'org.codehaus.plexus:plexus-cipher:2.0'
+    classpath 'org.codehaus.plexus:plexus-sec-dispatcher:2.0'
+    classpath 'org.codehaus.plexus:plexus-utils:3.5.1'
+  }
+}
+
 plugins {
   id 'java-library'
   id 'maven-publish'
@@ -5,6 +20,37 @@ plugins {
   id 'com.gradleup.nmcp' version '0.0.9'
   id 'com.diffplug.spotless' version '6.25.0'
 }
+
+import org.sonatype.plexus.components.cipher.DefaultPlexusCipher
+import org.sonatype.plexus.components.sec.dispatcher.DefaultSecDispatcher
+
+// 從 ~/.m2/settings.xml 讀指定 serverId 的 username/password,
+// password 若為 {加密} 形式則用 settings-security.xml 解.
+// 找不到檔或找不到 server 時回 null (本機 dev 沒這些檔不會 crash).
+def readMavenServer(String serverId) {
+  def home = System.getProperty('user.home')
+  def settingsFile = new File("$home/.m2/settings.xml")
+  def securityFile = new File("$home/.m2/settings-security.xml")
+  if (!settingsFile.exists()) return null
+
+  def settings = new XmlSlurper().parse(settingsFile)
+  def server = settings.servers.server.find { it.id.text() == serverId }
+  if (!server) return null
+
+  def rawPassword = server.password.text()
+  def password
+  if (rawPassword.startsWith('{') && rawPassword.endsWith('}')) {
+    if (!securityFile.exists()) return null
+    def dispatcher = new DefaultSecDispatcher(new DefaultPlexusCipher())
+    dispatcher.setConfigurationFile(securityFile.absolutePath)
+    password = dispatcher.decrypt(rawPassword)
+  } else {
+    password = rawPassword
+  }
+  return [username: server.username.text(), password: password]
+}
+
+def centralCreds = readMavenServer('central') ?: [:]
 
 group = 'tw.com.softleader.cloud.tools'
 description = 'A Jib gradle extension outputs the configured jvmFlags to file, allowing a custom entrypoint to access these flags.'
@@ -143,11 +189,14 @@ signing {
 nmcp {
   // Publishes bundle to Sonatype Central Portal (https://central.sonatype.com),
   // mirroring the maven side's central-publishing-maven-plugin with autoPublish=true.
-  // Credentials read from env vars CENTRAL_PORTAL_USERNAME / CENTRAL_PORTAL_PASSWORD —
-  // wired via withCredentials in Jenkinsfile-release.
+  // Credentials sourced from ~/.m2/settings.xml <server id="central"> — same source as
+  // maven-side central-publishing-maven-plugin, decrypted via plexus-sec-dispatcher above.
+  // Env vars CENTRAL_PORTAL_USERNAME / PASSWORD remain as override (e.g. for non-CI).
   publishAllPublications {
     username = providers.environmentVariable('CENTRAL_PORTAL_USERNAME')
+        .orElse(providers.provider { centralCreds.username ?: '' })
     password = providers.environmentVariable('CENTRAL_PORTAL_PASSWORD')
+        .orElse(providers.provider { centralCreds.password ?: '' })
     publicationType = 'AUTOMATIC'
   }
 }
