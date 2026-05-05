@@ -23,6 +23,9 @@ repositories {
 ext {
   jibGradlePluginExtensionApiVersion = '0.4.0'
   jibGradlePluginVersion = '3.4.0'
+  // Must match parent pom.xml's <google-java-format.version> to avoid byte
+  // divergence on shared core/*.java when both modules format-check (spec R5).
+  // Bump both sides together.
   googleJavaFormatVersion = '1.17.0'
   lombokVersion = '1.18.42'
   commonsLang3Version = '3.18.0'

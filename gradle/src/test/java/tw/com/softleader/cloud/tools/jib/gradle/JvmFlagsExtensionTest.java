@@ -92,6 +92,25 @@ class JvmFlagsExtensionTest {
   }
 
   @Test
+  void testExtendContainerBuildPlanWithOnlyBlankJvmFlagsAndSkipIfEmpty()
+      throws JibPluginExtensionException {
+    when(extensionContainer.findByType(JibExtension.class)).thenReturn(jibExtension);
+    when(jibExtension.getContainer()).thenReturn(containerParameters);
+    when(containerParameters.getJvmFlags()).thenReturn(List.of("  ", ""));
+
+    ContainerBuildPlan originalPlan = ContainerBuildPlan.builder().build();
+    ContainerBuildPlan modifiedPlan =
+        extension.extendContainerBuildPlan(
+            originalPlan,
+            Map.of(PROPERTY_SKIP_IF_EMPTY, "true"),
+            Optional.empty(),
+            gradleData,
+            logger);
+
+    assertThat(originalPlan).isEqualTo(modifiedPlan);
+  }
+
+  @Test
   void testExtendContainerBuildPlanWithJvmFlags() throws JibPluginExtensionException {
     when(extensionContainer.findByType(JibExtension.class)).thenReturn(jibExtension);
     when(jibExtension.getContainer()).thenReturn(containerParameters);

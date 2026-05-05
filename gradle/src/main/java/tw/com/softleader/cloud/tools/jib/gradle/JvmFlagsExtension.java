@@ -39,6 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.NonNull;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -109,6 +110,9 @@ public class JvmFlagsExtension implements JibGradlePluginExtension<Void> {
     return ofNullable(getJibExtension(project))
         .map(JibExtension::getContainer)
         .map(container -> container.getJvmFlags())
+        .map(
+            jvmFlags ->
+                jvmFlags.stream().filter(StringUtils::isNotBlank).collect(Collectors.toList()))
         .orElseGet(Collections::emptyList);
   }
 
