@@ -278,7 +278,7 @@ CI 必須 `mvn verify` 與 `./gradlew test` 都跑過才算 green。
   - SPI 服務檔 `META-INF/services/com.google.cloud.tools.jib.maven.extension.JibMavenPluginExtension` 路徑、內容**不變**
   - parent `pom.xml` 顯式宣告 `<annotationProcessorPaths>` 包含 lombok（spike R4 — 否則 JDK 25 編不過）
 - **Verify**：
-  - `mvn -B clean verify` 全綠（含 JDK 25 上）
+  - `mvn -B clean verify` 全綠（在 supported dev-JDK matrix 11 / 17 / 21 / 22 上；JDK 23+ 受 google-java-format 1.17 ceiling 限制，見 §11 R6，dev workaround `-Dskip.formatting=true`）
   - `unzip -l maven/target/*.jar | grep -E 'JvmFlagsExtension.class|META-INF/services/'` 顯示 FQN 與服務檔路徑與 1.0.5 對齊
   - `unzip -l maven/target/*.jar | grep JvmFlagsLayerPlan` 顯示 class 在 `tw/com/softleader/cloud/tools/jib/core/`
 
@@ -366,6 +366,7 @@ CI 必須 `mvn verify` 與 `./gradlew test` 都跑過才算 green。
 - **R3（spike 補充）**：`org.gradle.api.Project` 是 Gradle 內部 API，未來 Gradle 版本變動可能 break。緩解：CI 跑 unit test、訂版本相容矩陣（README 聲明 3.4.x / 3.5.x，未來新大版手動評估）。
 - ~~R4（spike 補充）~~：lombok annotation processor path **升格進 MVP-2 acceptance**，不再是 risk。
 - **R5（grilling 新增）**：兩端 spotless 在 `core/*.java` 上產生 byte 差異 → CI lint fail。緩解：`google-java-format` 版本 pin 到 properties 雙端共用；gradle 端 spotless 設 check-only 避免互打。
+- **R6（PR-A review 新增）**：`google-java-format 1.17.0` 是最後一版能 run on JDK 11 的 release（為對齊 Jenkins `maven:3-eclipse-temurin-11` image 而 pin），但它在 JDK 23+ 會以 `NoSuchMethodError` 在 `com.sun.tools.javac.util.Log$DeferredDiagnosticHandler.getDiagnostics()` 上掛掉。緩解：dev-JDK matrix 聲明上限為 22；JDK 23+ 使用者可用 `-Dskip.formatting=true` 編譯（仍能跑 test）。徹底解法（升 formatter / 升 Jenkins JDK image）屬範圍外。
 
 ## 12. Out of Scope（明確排除）
 
