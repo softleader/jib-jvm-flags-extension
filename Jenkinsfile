@@ -92,6 +92,19 @@ spec:
         }
       }
     }
+
+    stage('Gradle Build') {
+      steps {
+        dir('gradle') {
+          sh './gradlew build'
+        }
+      }
+      post {
+        always {
+          junit allowEmptyResults: true, testResults: 'gradle/build/test-results/test/**/*.xml'
+        }
+      }
+    }
   }
 
   post {
