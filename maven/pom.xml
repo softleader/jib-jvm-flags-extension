@@ -10,7 +10,6 @@
   </parent>
 
   <artifactId>jib-jvm-flags-extension-maven</artifactId>
-  <version>1.0.5</version>
 
   <name>JVM Flags Extension for Jib Maven Plugin</name>
   <description>A Jib maven extension outputs the configured jvmFlags to file, allowing a custom entrypoint to access these flags.</description>
