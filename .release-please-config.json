@@ -9,7 +9,10 @@
       "include-component-in-tag": false,
       "skip-snapshot": true,
       "extra-files": [
-        "maven/pom.xml",
+        {
+          "type": "pom",
+          "path": "maven/pom.xml"
+        },
         {
           "type": "generic",
           "path": "gradle/gradle.properties"

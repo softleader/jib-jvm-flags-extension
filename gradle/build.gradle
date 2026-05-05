@@ -3,8 +3,9 @@ buildscript {
     mavenCentral()
   }
   dependencies {
-    // 用 maven 自己的 lib 在 build.gradle 解密 ~/.m2/settings.xml 的
-    // <server id="central"><password>{encrypted}</password>，
+    // 沿用 maven 加密 settings.xml 的同一套元件 (plexus-sec-dispatcher),
+    // 在 build.gradle 解密 ~/.m2/settings.xml 的
+    // <server id="central"><password>{encrypted}</password>,
     // 跟 maven-gpg-plugin / central-publishing-maven-plugin 共用同一份加密源,
     // 避免 Jenkins 端再開一份 plaintext / 另一個 credential.
     classpath 'org.codehaus.plexus:plexus-cipher:2.0'
@@ -56,7 +57,9 @@ def readMavenServer(String serverId) {
   return [username: username, password: password]
 }
 
-def centralCreds = readMavenServer('central') ?: [:]
+// 包成 Provider, 只有真的需要時 (publish task 配置/執行) 才讀檔解密;
+// `./gradlew test` / `./gradlew build` 不會碰 settings.xml.
+def centralCreds = providers.provider { readMavenServer('central') ?: [:] }
 
 group = 'tw.com.softleader.cloud.tools'
 description = 'A Jib gradle extension outputs the configured jvmFlags to file, allowing a custom entrypoint to access these flags.'
@@ -200,9 +203,9 @@ nmcp {
   // Env vars CENTRAL_PORTAL_USERNAME / PASSWORD remain as override (e.g. for non-CI).
   publishAllPublications {
     username = providers.environmentVariable('CENTRAL_PORTAL_USERNAME')
-        .orElse(providers.provider { centralCreds.username ?: '' })
+        .orElse(centralCreds.map { it.username ?: '' })
     password = providers.environmentVariable('CENTRAL_PORTAL_PASSWORD')
-        .orElse(providers.provider { centralCreds.password ?: '' })
+        .orElse(centralCreds.map { it.password ?: '' })
     publicationType = 'AUTOMATIC'
   }
 }
