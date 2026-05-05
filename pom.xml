@@ -133,47 +133,43 @@
           <artifactId>build-helper-maven-plugin</artifactId>
           <version>${build-helper-maven-plugin.version}</version>
         </plugin>
-        <plugin>
-          <groupId>com.diffplug.spotless</groupId>
-          <artifactId>spotless-maven-plugin</artifactId>
-          <version>${spotless-maven-plugin.version}</version>
-          <configuration>
-            <applySkip>${skip.formatting}</applySkip>
-            <java>
-              <includes>
-                <include>src/main/java/**/*.java</include>
-                <include>src/test/java/**/*.java</include>
-                <include>${maven.multiModuleProjectDirectory}/core/src/main/java/**/*.java</include>
-                <include>${maven.multiModuleProjectDirectory}/core/src/test/java/**/*.java</include>
-              </includes>
-              <googleJavaFormat>
-                <version>${google-java-format.version}</version>
-              </googleJavaFormat>
-              <licenseHeader>
-                <file>${maven.multiModuleProjectDirectory}/copyright-license-header-template.txt</file>
-                <delimiter>(package|import)</delimiter>
-              </licenseHeader>
-            </java>
-            <pom>
-              <sortPom/>
-            </pom>
-          </configuration>
-          <executions>
-            <execution>
-              <id>apply</id>
-              <goals>
-                <goal>apply</goal>
-              </goals>
-              <phase>validate</phase>
-            </execution>
-          </executions>
-        </plugin>
       </plugins>
     </pluginManagement>
     <plugins>
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless-maven-plugin.version}</version>
+        <configuration>
+          <applySkip>${skip.formatting}</applySkip>
+          <java>
+            <includes>
+              <include>maven/src/main/java/**/*.java</include>
+              <include>maven/src/test/java/**/*.java</include>
+              <include>core/src/main/java/**/*.java</include>
+              <include>core/src/test/java/**/*.java</include>
+            </includes>
+            <googleJavaFormat>
+              <version>${google-java-format.version}</version>
+            </googleJavaFormat>
+            <licenseHeader>
+              <file>${maven.multiModuleProjectDirectory}/copyright-license-header-template.txt</file>
+              <delimiter>(package|import)</delimiter>
+            </licenseHeader>
+          </java>
+          <pom>
+            <sortPom/>
+          </pom>
+        </configuration>
+        <executions>
+          <execution>
+            <id>apply</id>
+            <goals>
+              <goal>apply</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
