@@ -96,7 +96,8 @@ spec:
     stage('Gradle Build') {
       steps {
         dir('gradle') {
-          sh './gradlew build'
+          // --no-daemon: short-lived CI pod throws the daemon away, no point paying startup
+          sh './gradlew build --no-daemon'
         }
       }
       post {
