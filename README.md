@@ -131,3 +131,90 @@ You can further customize the extension with the following properties:
   </properties>
 </pluginExtension>
 ```
+
+## Usage with Gradle
+
+To use the Jib JVM Flags extension in your project, configure `jib-gradle-plugin` as follows:
+
+```gradle
+// should be at the top of build.gradle
+buildscript {
+  dependencies {
+    classpath 'tw.com.softleader.cloud.tools:jib-jvm-flags-extension-gradle:<VERSION>'
+  }
+}
+
+jib {
+  pluginExtensions {
+    pluginExtension {
+      implementation = 'tw.com.softleader.cloud.tools.jib.gradle.JvmFlagsExtension'
+    }
+  }
+}
+```
+
+> **Note:** Compatible with `jib-gradle-plugin` 3.4.x / 3.5.x.
+
+### Customizing Entrypoint with Java Command (Gradle)
+
+To customize the entrypoint using a direct Java command, for example:
+
+```gradle
+jib {
+  container {
+    jvmFlags = ['-XshowSettings:vm', '-Xdebug']
+    entrypoint = ['java', '@/app/jib-jvm-flags-file', '-cp', '@/app/jib-classpath-file', '@/app/jib-main-class-file']
+  }
+  pluginExtensions {
+    pluginExtension {
+      implementation = 'tw.com.softleader.cloud.tools.jib.gradle.JvmFlagsExtension'
+    }
+  }
+}
+```
+
+### Customizing Entrypoint Using a Shell Script (Gradle)
+
+Reuse the shell script shown in the Maven example above, then configure the plugin to invoke it:
+
+```gradle
+jib {
+  container {
+    jvmFlags = ['-XshowSettings:vm', '-Xdebug']
+    entrypoint = ['sh', '/entrypoint.sh']
+  }
+  extraDirectories {
+    paths {
+      path {
+        from = '.'
+        includes = ['entrypoint.sh']
+      }
+    }
+  }
+  pluginExtensions {
+    pluginExtension {
+      implementation = 'tw.com.softleader.cloud.tools.jib.gradle.JvmFlagsExtension'
+    }
+  }
+}
+```
+
+### Extension Properties (Gradle)
+
+You can further customize the extension with the following properties:
+
+```gradle
+pluginExtension {
+  implementation = 'tw.com.softleader.cloud.tools.jib.gradle.JvmFlagsExtension'
+  properties = [
+    // Skip if no jvmFlags specified, Default: false
+    skipIfEmpty: 'true',
+    // The separator character to use to join jvmFlags, Default: " " (space)
+    separator: ',',
+    // Set the output file name in container, Default: jib-jvm-flags-file
+    filename: 'my-jvm-flags-file',
+    // Set the output file permissions in container, Default: 644
+    mode: '666'
+  ]
+}
+```

@@ -92,6 +92,20 @@ spec:
         }
       }
     }
+
+    stage('Gradle Build') {
+      steps {
+        dir('gradle') {
+          // --no-daemon: short-lived CI pod throws the daemon away, no point paying startup
+          sh './gradlew build --no-daemon'
+        }
+      }
+      post {
+        always {
+          junit allowEmptyResults: true, testResults: 'gradle/build/test-results/test/**/*.xml'
+        }
+      }
+    }
   }
 
   post {
