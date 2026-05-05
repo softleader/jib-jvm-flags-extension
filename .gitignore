@@ -3,6 +3,7 @@ HELP.md
 target/
 !.mvn/wrapper/maven-wrapper.jar
 pom.xml.versionsBackup
+.flattened-pom.xml
 
 ### STS ###
 .apt_generated

@@ -55,6 +55,7 @@
     <maven-site-plugin.version>3.8.2</maven-site-plugin.version>
     <maven-source-plugin.version>3.2.0</maven-source-plugin.version>
     <central-publishing-maven-plugin.version>0.8.0</central-publishing-maven-plugin.version>
+    <flatten-maven-plugin.version>1.7.0</flatten-maven-plugin.version>
 
     <google-java-format.version>1.17.0</google-java-format.version>
 
@@ -243,21 +244,47 @@
                 </execution>
               </executions>
             </plugin>
+            <plugin>
+              <!-- Strip <parent> + inline managed versions so the published pom
+                   has no dependency on the unpublished aggregator parent. -->
+              <groupId>org.codehaus.mojo</groupId>
+              <artifactId>flatten-maven-plugin</artifactId>
+              <version>${flatten-maven-plugin.version}</version>
+              <configuration>
+                <flattenMode>oss</flattenMode>
+              </configuration>
+              <executions>
+                <execution>
+                  <id>flatten</id>
+                  <goals>
+                    <goal>flatten</goal>
+                  </goals>
+                  <phase>process-resources</phase>
+                </execution>
+                <execution>
+                  <id>flatten.clean</id>
+                  <goals>
+                    <goal>clean</goal>
+                  </goals>
+                  <phase>clean</phase>
+                </execution>
+              </executions>
+            </plugin>
+            <plugin>
+              <!-- https://central.sonatype.org/publish/publish-portal-maven/
+                   Declared here so only modules that opt in (the publishable
+                   ones) load it as an extension; the aggregator parent does
+                   not publish. -->
+              <groupId>org.sonatype.central</groupId>
+              <artifactId>central-publishing-maven-plugin</artifactId>
+              <version>${central-publishing-maven-plugin.version}</version>
+              <configuration>
+                <publishingServerId>central</publishingServerId>
+                <autoPublish>true</autoPublish>
+              </configuration>
+            </plugin>
           </plugins>
         </pluginManagement>
-        <plugins>
-          <plugin>
-            <!-- https://central.sonatype.org/publish/publish-portal-maven/ -->
-            <groupId>org.sonatype.central</groupId>
-            <artifactId>central-publishing-maven-plugin</artifactId>
-            <version>${central-publishing-maven-plugin.version}</version>
-            <extensions>true</extensions>
-            <configuration>
-              <publishingServerId>central</publishingServerId>
-              <autoPublish>true</autoPublish>
-            </configuration>
-          </plugin>
-        </plugins>
       </build>
     </profile>
   </profiles>
