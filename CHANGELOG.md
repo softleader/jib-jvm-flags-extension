@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/softleader/jib-jvm-flags-extension/compare/1.1.0...1.1.1) (2026-05-06)
+
+
+### Bug Fixes
+
+* **release:** flatten maven pom so it publishes without aggregator parent ([#76](https://github.com/softleader/jib-jvm-flags-extension/issues/76)) ([7b3f7d5](https://github.com/softleader/jib-jvm-flags-extension/commit/7b3f7d5129003670c5174b1612e313d4769cb2f5))
+
 ## [1.1.0](https://github.com/softleader/jib-jvm-flags-extension/compare/1.0.5...1.1.0) (2026-05-05)
 
 
