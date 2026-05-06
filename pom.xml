@@ -178,6 +178,14 @@
   <profiles>
     <profile>
       <id>release</id>
+      <properties>
+        <!-- The aggregator pom is not published. Without distributionManagement,
+             the default maven-deploy-plugin:deploy on the aggregator would fail;
+             skipping it lets the reactor reach the publishable maven module.
+             The maven module's central-publishing extension replaces the default
+             deploy goal, so this property has no effect there. -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+      </properties>
       <build>
         <pluginManagement>
           <plugins>
@@ -271,10 +279,7 @@
               </executions>
             </plugin>
             <plugin>
-              <!-- https://central.sonatype.org/publish/publish-portal-maven/
-                   Declared here so only modules that opt in (the publishable
-                   ones) load it as an extension; the aggregator parent does
-                   not publish. -->
+              <!-- https://central.sonatype.org/publish/publish-portal-maven/ -->
               <groupId>org.sonatype.central</groupId>
               <artifactId>central-publishing-maven-plugin</artifactId>
               <version>${central-publishing-maven-plugin.version}</version>
