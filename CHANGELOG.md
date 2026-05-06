@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/softleader/jib-jvm-flags-extension/compare/1.1.1...1.1.2) (2026-05-06)
+
+
+### Bug Fixes
+
+* **release:** skip default deploy on aggregator parent ([#78](https://github.com/softleader/jib-jvm-flags-extension/issues/78)) ([843bc2e](https://github.com/softleader/jib-jvm-flags-extension/commit/843bc2eae87e52f6c409776a1a9f81f1c06a16a5))
+
 ## [1.1.1](https://github.com/softleader/jib-jvm-flags-extension/compare/1.1.0...1.1.1) (2026-05-06)
 
 
