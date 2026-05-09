@@ -5,24 +5,25 @@
 
 # Jib JVM Flags Extension
 
-A [Jib](https://github.com/GoogleContainerTools/jib) [maven extension](https://github.com/GoogleContainerTools/jib-extensions) outputs the configured `jvmFlags` into the `/app/jib-jvm-flags-file` file, allowing a [custom entrypoint](https://github.com/GoogleContainerTools/jib/tree/master/jib-maven-plugin#custom-container-entrypoint) to access these flags.
+A [Jib](https://github.com/GoogleContainerTools/jib) [extension](https://github.com/GoogleContainerTools/jib-extensions) for Maven and Gradle that preserves your `jvmFlags` when you switch to a [custom entrypoint](https://github.com/GoogleContainerTools/jib/tree/master/jib-maven-plugin#custom-container-entrypoint).
 
-When a custom entrypoint is used, Jib ignores the `jvmFlags` settings. This extension ensures that the configured `jvmFlags` are accessible even in such scenarios:
+## Why?
 
-- For Java 11+:
-  ```sh
-  java @/app/jib-jvm-flags-file -cp @/app/jib-classpath-file @/app/jib-main-class-file
-  ```
-- With shell:
-  ```sh
-  java $(cat /app/jib-jvm-flags-file) -cp $(cat /app/jib-classpath-file) $(cat /app/jib-main-class-file)
-  ```
+Jib silently drops `jvmFlags` whenever a custom `entrypoint` is set. This extension keeps them around by writing the configured flags to `/app/jib-jvm-flags-file` inside the image, so your entrypoint can apply them at startup:
 
-> **Note:** Requires Java 11 or newer
+```sh
+# Java 11+ argument file
+java @/app/jib-jvm-flags-file -cp @/app/jib-classpath-file @/app/jib-main-class-file
 
-## Usage
+# Or via shell
+java $(cat /app/jib-jvm-flags-file) -cp $(cat /app/jib-classpath-file) $(cat /app/jib-main-class-file)
+```
 
-To use the Jib JVM Flags extension in your project, configure the `jib-maven-plugin` as follows:
+> **Requires Java 11+.** The Gradle variant supports `jib-gradle-plugin` 3.4.x / 3.5.x.
+
+## Usage with Maven
+
+Register the extension on your `jib-maven-plugin`:
 
 ```xml
 <plugin>
@@ -46,9 +47,11 @@ To use the Jib JVM Flags extension in your project, configure the `jib-maven-plu
 </plugin>
 ```
 
-### Customizing Entrypoint with Java Command
+Then pick one of the entrypoint patterns below.
 
-To customize the entrypoint using a direct Java command, for example:
+### Entrypoint with a direct Java command
+
+Use the JVM's `@filename` argument-file syntax to read flags inline:
 
 ```xml
 <configuration>
@@ -67,16 +70,15 @@ To customize the entrypoint using a direct Java command, for example:
 </configuration>
 ```
 
-### Customizing Entrypoint Using a Shell Script
+### Entrypoint with a shell script
 
-You can also use a shell script to launch your app:
+Useful when you need env vars or setup steps before launching the JVM. Drop a script alongside your build:
 
 ```sh
 #!/bin/bash
 set -e
 
-# Perform any necessary steps before starting the JVM,
-# such as setting JVM options or preparing the environment
+# Setup steps (env vars, certs, etc.)
 export JAVA_TOOL_OPTIONS="-Xmx1g"
 
 exec java $(cat /app/jib-jvm-flags-file) \
@@ -85,7 +87,7 @@ exec java $(cat /app/jib-jvm-flags-file) \
   "$@"
 ```
 
-And then configure the plugin to use this script:
+Point the entrypoint at the script and ship it with the image:
 
 ```xml
 <configuration>
@@ -112,21 +114,22 @@ And then configure the plugin to use this script:
 </configuration>
 ```
 
-### Extension Properties 
+### Extension properties
 
-You can further customize the extension with the following properties:
+| Property      | Default              | Description                                                  |
+|---------------|----------------------|--------------------------------------------------------------|
+| `skipIfEmpty` | `false`              | Skip the extension when no `jvmFlags` are configured         |
+| `separator`   | `" "` (space)        | Character used to join flags inside the file                 |
+| `filename`    | `jib-jvm-flags-file` | Output file name inside the container                        |
+| `mode`        | `644`                | Output file permissions inside the container                 |
 
 ```xml
 <pluginExtension>
   <implementation>tw.com.softleader.cloud.tools.jib.maven.JvmFlagsExtension</implementation>
   <properties>
-    <!-- Skip if no jvmFlags specified, Default: false -->
     <skipIfEmpty>true</skipIfEmpty>
-    <!-- The separator character to use to join jvmFlags, Default: " " (space) --> 
     <separator>,</separator>
-    <!-- Set the output file name in container, Default: jib-jvm-flags-file --> 
     <filename>my-jvm-flags-file</filename>
-    <!-- Set the output file permissions in container, Default: 644 --> 
     <mode>666</mode>
   </properties>
 </pluginExtension>
@@ -134,10 +137,10 @@ You can further customize the extension with the following properties:
 
 ## Usage with Gradle
 
-To use the Jib JVM Flags extension in your project, configure `jib-gradle-plugin` as follows:
+Register the extension on your `jib-gradle-plugin`:
 
 ```gradle
-// should be at the top of build.gradle
+// At the top of build.gradle
 buildscript {
   dependencies {
     classpath 'tw.com.softleader.cloud.tools:jib-jvm-flags-extension-gradle:<VERSION>'
@@ -153,11 +156,7 @@ jib {
 }
 ```
 
-> **Note:** Compatible with `jib-gradle-plugin` 3.4.x / 3.5.x.
-
-### Customizing Entrypoint with Java Command (Gradle)
-
-To customize the entrypoint using a direct Java command, for example:
+### Entrypoint with a direct Java command
 
 ```gradle
 jib {
@@ -173,9 +172,9 @@ jib {
 }
 ```
 
-### Customizing Entrypoint Using a Shell Script (Gradle)
+### Entrypoint with a shell script
 
-Reuse the shell script shown in the Maven example above, then configure the plugin to invoke it:
+Reuse the [shell script shown above](#entrypoint-with-a-shell-script), then wire it up in Gradle:
 
 ```gradle
 jib {
@@ -199,21 +198,17 @@ jib {
 }
 ```
 
-### Extension Properties (Gradle)
+### Extension properties
 
-You can further customize the extension with the following properties:
+The properties are the same as documented [above](#extension-properties):
 
 ```gradle
 pluginExtension {
   implementation = 'tw.com.softleader.cloud.tools.jib.gradle.JvmFlagsExtension'
   properties = [
-    // Skip if no jvmFlags specified, Default: false
     skipIfEmpty: 'true',
-    // The separator character to use to join jvmFlags, Default: " " (space)
     separator: ',',
-    // Set the output file name in container, Default: jib-jvm-flags-file
     filename: 'my-jvm-flags-file',
-    // Set the output file permissions in container, Default: 644
     mode: '666'
   ]
 }
