@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset xmlns="https://www.mojohaus.org/VERSIONS/RULE/3.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="https://www.mojohaus.org/VERSIONS/RULE/3.0.0 https://www.mojohaus.org/versions/versions-model/xsd/rule-3.0.0.xsd">
+  <rules>
+    <!-- Spotless 3.x requires Java 17; this project targets Java 11. -->
+    <rule groupId="com.diffplug.spotless" artifactId="spotless-maven-plugin">
+      <ignoreVersions>
+        <ignoreVersion type="regex">([3-9]|\d{2,})\..*</ignoreVersion>
+      </ignoreVersions>
+    </rule>
+    <!-- JUnit Jupiter 6.x requires Java 17; this project targets Java 11. -->
+    <rule groupId="org.junit.jupiter" artifactId="junit-jupiter-engine">
+      <ignoreVersions>
+        <ignoreVersion type="regex">([6-9]|\d{2,})\..*</ignoreVersion>
+      </ignoreVersions>
+    </rule>
+  </rules>
+</ruleset>
