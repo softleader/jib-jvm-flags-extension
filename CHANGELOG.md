@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.3](https://github.com/softleader/jib-jvm-flags-extension/compare/1.1.2...1.1.3) (2026-05-16)
+
+
+### Bug Fixes
+
+* **deps:** bump dependencies ([#83](https://github.com/softleader/jib-jvm-flags-extension/issues/83)) ([69bfb44](https://github.com/softleader/jib-jvm-flags-extension/commit/69bfb447fb1a22b11e2eef858c19018004c1ed1d))
+
+
+### Documentation
+
+* restructure README for clarity ([36688c8](https://github.com/softleader/jib-jvm-flags-extension/commit/36688c89dd7d0700c2aa6b4f9223830e6d7bd942))
+
 ## [1.1.2](https://github.com/softleader/jib-jvm-flags-extension/compare/1.1.1...1.1.2) (2026-05-06)
 
 
